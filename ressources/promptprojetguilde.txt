@@ -1,0 +1,267 @@
+# Prompt complet pour Claude Code : Application de gestion de tables de JDR
+
+## Contexte
+Je veux créer une application web pour gérer des tables de jeux de rôle partageable en ligne. L'application doit utiliser Google Sheets comme base de données via Google Apps Script.
+
+## Spécifications fonctionnelles
+
+### Gestion des utilisateurs
+- Connexion simple par nom (sans mot de passe)
+- Mémorisation du nom dans le navigateur (localStorage)
+- Deux types d'utilisateurs :
+  - **Joueurs** : peuvent s'inscrire/se désinscrire des sessions
+  - **MJ (Maîtres du Jeu)** : peuvent créer des campagnes et des sessions
+
+### Gestion des campagnes
+- Les MJ peuvent créer des campagnes avec :
+  - Nom de la campagne
+  - Description (optionnel)
+  - MJ associé automatiquement
+- Les campagnes sont récurrentes et numérotées par épisodes
+- Chaque MJ peut avoir plusieurs campagnes
+
+### Gestion des sessions
+- Les MJ peuvent créer des sessions avec :
+  - Date (jusqu'au 31/12/2026)
+  - Heure (par défaut 20:00)
+  - Campagne (sélection parmi leurs campagnes)
+  - Numéro d'épisode/session
+  - Nombre minimum de joueurs (par défaut 3)
+  - Nombre maximum de joueurs (par défaut 5)
+- Les MJ peuvent modifier leurs sessions (date, heure, épisode, min/max joueurs)
+- Les MJ peuvent supprimer leurs sessions
+- Les MJ peuvent retirer des joueurs d'une session
+
+### Règles d'inscription
+- **Contrainte principale** : Un joueur ne peut être inscrit que sur **une seule table par date**
+- Si un joueur tente de s'inscrire sur une deuxième table le même jour : message d'erreur
+- Un joueur peut se désinscrire et se réinscrire sur une autre table
+- Une session ne peut pas dépasser son nombre maximum de joueurs
+- Affichage visuel : "Min X requis" si pas assez de joueurs, "Complet" si plein
+
+### Archivage
+- Les sessions passées doivent être automatiquement archivées
+- Archivage manuel possible via bouton "Archiver l'ancien"
+- Les sessions archivées sont consultables dans un onglet séparé "Archives"
+- Les sessions archivées ne permettent plus d'inscription/désinscription
+
+### Interface utilisateur
+
+#### Vues disponibles
+1. **Vue Liste** : sessions triées chronologiquement
+2. **Vue Calendrier** : sessions regroupées par date
+3. **Vue Archives** : sessions passées
+
+#### Affichage d'une session
+- Titre : nom de la campagne
+- Badge : numéro d'épisode
+- Date et heure
+- Nom du MJ
+- Liste des joueurs inscrits avec compteur (X/Y)
+- Indicateur visuel : "Min X requis" ou "Complet"
+- Boutons d'action selon le contexte :
+  - Joueur : "S'inscrire" ou "Se désinscrire"
+  - MJ (ses sessions) : "Modifier", "Supprimer", retirer des joueurs
+
+#### Header
+- Logo et titre "Tables de JDR"
+- Nom de l'utilisateur connecté + badge "(MJ)" si applicable
+- Boutons :
+  - Actualiser (refresh auto toutes les 30 secondes)
+  - Basculer Archives/Sessions actives
+  - Switch Vue Liste/Calendrier
+  - Déconnexion
+
+#### Boutons d'action MJ
+- "Créer une session" (bouton violet)
+- "Créer une campagne" (bouton bleu)
+- "Archiver l'ancien" (bouton gris)
+
+### Messages d'erreur
+- "Date et campagne obligatoires" si champs vides
+- "Nom de campagne obligatoire"
+- "Vous êtes déjà inscrit sur une autre table ce jour-là"
+- "Table complète"
+- "Erreur de connexion au serveur"
+
+## Architecture technique
+
+### Stack
+- **Frontend** : React (hooks) avec Tailwind CSS
+- **Icons** : Lucide React
+- **Backend** : Google Apps Script (deployed as Web App)
+- **Base de données** : Google Sheets (3 onglets)
+
+### Structure Google Sheets
+
+#### Onglet "Sessions"
+| Colonne | Type | Description |
+|---------|------|-------------|
+| ID | String | UUID unique |
+| Date | Date | Date de la session |
+| Heure | String | Heure (format HH:MM) |
+| MJ | String | Nom du MJ |
+| Campagne | String | Nom de la campagne |
+| Épisode | String | Numéro d'épisode |
+| Min Joueurs | Number | Minimum de joueurs |
+| Max Joueurs | Number | Maximum de joueurs |
+| Joueurs | String | Liste séparée par virgules |
+| Date Création | ISO Date | Date de création |
+
+#### Onglet "Campagnes"
+| Colonne | Type | Description |
+|---------|------|-------------|
+| ID | String | UUID unique |
+| Nom | String | Nom de la campagne |
+| MJ | String | Nom du MJ propriétaire |
+| Description | String | Description (optionnel) |
+| Date Création | ISO Date | Date de création |
+
+#### Onglet "Archives"
+Structure identique à "Sessions"
+
+### API Apps Script
+
+#### Endpoints GET
+- `getSessions` : récupère toutes les sessions actives
+- `getCampaigns` : récupère toutes les campagnes
+- `getArchives` : récupère toutes les sessions archivées
+
+#### Endpoints POST
+- `createSession` : crée une nouvelle session
+  - Paramètres : date, time, gm, campaign, episode, minPlayers, maxPlayers
+- `updateSession` : modifie une session existante
+  - Paramètres : id + champs à modifier
+- `deleteSession` : supprime une session
+  - Paramètres : id
+- `joinSession` : inscrit un joueur à une session
+  - Paramètres : sessionId, playerName
+  - Validation : vérifie qu'il n'est pas déjà inscrit ce jour-là
+- `leaveSession` : désinscrit un joueur d'une session
+  - Paramètres : sessionId, playerName
+- `removePlayer` : le MJ retire un joueur (identique à leaveSession)
+  - Paramètres : sessionId, playerName
+- `createCampaign` : crée une nouvelle campagne
+  - Paramètres : name, gm, description
+- `archiveOldSessions` : déplace les sessions passées vers Archives
+  - Compare la date des sessions avec aujourd'hui
+
+### Fonctions utilitaires Apps Script
+- `getOrCreateSheet(sheetName)` : crée l'onglet s'il n'existe pas avec les en-têtes
+- `jsonResponse(data)` : formatte la réponse en JSON
+- `setupDailyArchive()` : crée un trigger quotidien pour l'archivage automatique (optionnel)
+- `testScript()` : fonction de test pour créer une session de démo
+
+### Configuration CORS
+Le déploiement Apps Script doit être configuré en :
+- "Exécuter en tant que" : Moi (le propriétaire)
+- "Qui a accès" : Tout le monde
+
+### État React principal
+```javascript
+const [currentUser, setCurrentUser] = useState(localStorage.getItem('rpg_username') || '');
+const [tempUsername, setTempUsername] = useState('');
+const [isGM, setIsGM] = useState(false);
+const [viewMode, setViewMode] = useState('list'); // 'list' ou 'calendar'
+const [showArchive, setShowArchive] = useState(false);
+const [sessions, setSessions] = useState([]);
+const [campaigns, setCampaigns] = useState([]);
+const [archives, setArchives] = useState([]);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState('');
+const [showCreateSession, setShowCreateSession] = useState(false);
+const [showCreateCampaign, setShowCreateCampaign] = useState(false);
+const [editingSession, setEditingSession] = useState(null);
+```
+
+## Design
+
+### Palette de couleurs
+- Primary (violet) : #9333EA (bg-purple-600)
+- Secondary (bleu) : #2563EB (bg-blue-600)
+- Success (vert) : #16A34A (bg-green-600)
+- Danger (rouge) : #DC2626 (bg-red-600)
+- Neutral : grays (#F9FAFB à #111827)
+
+### Gradients
+- Background login : from-purple-900 via-blue-900 to-indigo-900
+- Background app : from-purple-50 via-blue-50 to-indigo-50
+
+### Composants
+- **SessionCard** : carte arrondie avec ombre, hover effect
+- **Modal** : fond noir semi-transparent, contenu blanc centré
+- Boutons : arrondis (rounded-lg), transitions smooth
+- Badges : rounded-full pour épisodes et statuts
+
+### Responsive
+- Mobile-first
+- Grille adaptative pour vue calendrier (md:grid-cols-2)
+- Header flexible avec wrap sur petits écrans
+
+## Livrables attendus
+
+### Pour le déploiement
+1. **apps-script-backend.gs** : code Google Apps Script complet
+2. **index.html** : application React standalone (tout-en-un)
+   - React + ReactDOM depuis CDN
+   - Babel pour JSX
+   - Tailwind CSS depuis CDN
+   - Lucide icons
+   - Configuration avec URL Apps Script (variable APPS_SCRIPT_URL à remplir)
+
+### Pour le développement
+3. **jdr-tables.jsx** : composant React pour utilisation dans Claude artifacts
+4. **GUIDE-INSTALLATION.md** : instructions complètes
+   - Création du Google Sheet
+   - Copie du script Apps Script
+   - Déploiement comme Web App
+   - Configuration de l'URL dans le code
+   - Options d'hébergement (Netlify, GitHub Pages, Glitch, Google Drive)
+
+## Contraintes techniques
+
+### Performance
+- Actualisation automatique toutes les 30 secondes (silencieuse)
+- Bouton d'actualisation manuelle
+- Loading states pour toutes les opérations async
+
+### UX
+- Messages d'erreur clairs et visibles
+- Confirmations pour actions destructives (supprimer, retirer joueur)
+- Désactivation des boutons pendant le chargement
+- Formulaires avec validation
+
+### Sécurité
+- Pas d'authentification forte (c'est assumé pour un groupe de confiance)
+- Validation côté serveur (Apps Script) pour les règles métier
+- Protection contre double inscription le même jour
+
+### Compatibilité
+- Navigateurs modernes (Chrome, Firefox, Safari, Edge)
+- Mobile et desktop
+- Pas de dépendance à Node.js ou build tools
+
+## Notes importantes
+
+- Le fichier HTML doit être **standalone** (tout inclus, pas de fichiers externes à part les CDN)
+- L'URL Apps Script doit être facilement remplaçable (constante en haut du code)
+- Le code doit être lisible et commenté
+- Prévoir des exemples de données pour tester
+- La fonction `testScript()` doit créer des données de démo
+
+## Variable à configurer
+
+```javascript
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/VOTRE_SCRIPT_ID/exec';
+```
+
+Cette URL sera fournie après le déploiement du script Apps Script.
+
+## URL Apps Script actuelle (pour référence)
+```
+https://script.google.com/macros/s/AKfycbxa6dEdbQkVuZ9yGj_NaRwqxEW7ylKcTDGXi7F48-uw5a-9hJS7ubaQp_mzpU-8cx5n/exec
+```
+
+---
+
+**Objectif final** : Une application web fonctionnelle, facile à déployer, qui permet à un groupe de joueurs de JDR de gérer leurs sessions de manière collaborative via Google Sheets.
