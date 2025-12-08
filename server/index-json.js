@@ -6,6 +6,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import storage from './storage/json-storage.js';
 
@@ -14,14 +15,21 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const DIST_PATH = path.join(__dirname, '../dist');
 
 app.use(cors());
 app.use(express.json());
 
-// Servir le frontend en production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')));
+// Servir le frontend en production (si le dossier dist existe)
+if (fs.existsSync(DIST_PATH)) {
+  console.log('Serving static files from:', DIST_PATH);
+  app.use(express.static(DIST_PATH));
 }
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // ============ ROUTES SESSIONS ============
 
@@ -136,10 +144,10 @@ app.post('/api/demo', (req, res) => {
   }
 });
 
-// Catch-all pour le SPA en production
-if (process.env.NODE_ENV === 'production') {
+// Catch-all pour le SPA (renvoie index.html pour toutes les routes non-API)
+if (fs.existsSync(DIST_PATH)) {
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+    res.sendFile(path.join(DIST_PATH, 'index.html'));
   });
 }
 
