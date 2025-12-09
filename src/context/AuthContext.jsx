@@ -20,30 +20,55 @@ export const AuthProvider = ({ children }) => {
   const fetchProfile = async (user) => {
     if (!user) {
       setProfile(null);
-      return;
+      return null;
     }
 
     try {
       const userProfile = await profiles.getById(user.id);
       setProfile(userProfile);
+      return userProfile;
     } catch (error) {
-      console.error('Error fetching profile:', error);
-      setProfile(null);
+      console.warn('Profile not found, using user metadata:', error.message);
+      // Create a basic profile from user metadata
+      const basicProfile = {
+        id: user.id,
+        email: user.email,
+        display_name: user.user_metadata?.full_name ||
+                      user.user_metadata?.name ||
+                      user.user_metadata?.username ||
+                      user.email?.split('@')[0] ||
+                      'Utilisateur',
+        avatar_url: user.user_metadata?.avatar_url,
+        role: 'user'
+      };
+      setProfile(basicProfile);
+      return basicProfile;
     }
   };
 
   useEffect(() => {
+    let mounted = true;
+
     // Check active session on mount
     const initAuth = async () => {
       try {
+        console.log('Initializing auth...');
         const session = await auth.getSession();
-        const user = session?.user || null;
-        setCurrentUser(user);
-        await fetchProfile(user);
+        console.log('Session:', session ? 'found' : 'none');
+
+        if (mounted) {
+          const user = session?.user || null;
+          setCurrentUser(user);
+          if (user) {
+            await fetchProfile(user);
+          }
+          setLoading(false);
+        }
       } catch (error) {
         console.error('Auth init error:', error);
-      } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -51,13 +76,24 @@ export const AuthProvider = ({ children }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = auth.onAuthStateChange(async (event, session) => {
-      const user = session?.user || null;
-      setCurrentUser(user);
-      await fetchProfile(user);
-      setLoading(false);
+      console.log('Auth state changed:', event);
+
+      if (mounted) {
+        const user = session?.user || null;
+        setCurrentUser(user);
+
+        if (user) {
+          await fetchProfile(user);
+        } else {
+          setProfile(null);
+        }
+
+        setLoading(false);
+      }
     });
 
     return () => {
+      mounted = false;
       subscription?.unsubscribe();
     };
   }, []);

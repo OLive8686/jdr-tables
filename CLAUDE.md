@@ -97,3 +97,4 @@ npm run build    # Build production
 ## Options d'hébergement
 - **Gratuit** : Render, Fly.io, Netlify + Firebase
 - **Payant (~$5/mois)** : Railway, DigitalOcean, VPS
+
