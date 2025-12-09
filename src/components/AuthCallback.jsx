@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 // This component just redirects to home
 // Supabase handles the token exchange automatically via onAuthStateChange
