@@ -17,7 +17,6 @@ const formatDate = (dateStr) => {
 // Formater l'heure
 const formatTime = (timeStr) => {
   if (!timeStr) return '';
-  // Si c'est un ISO string, extraire l'heure
   if (timeStr.includes('T')) {
     return new Date(timeStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   }
@@ -34,12 +33,23 @@ const SessionCard = ({
   onRemovePlayer,
   loading
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, displayName } = useAuth();
 
-  const isUserRegistered = session.players?.includes(currentUser);
-  const isSessionGM = session.gm === currentUser || session.dm_id === currentUser;
+  // Extraire les joueurs depuis registrations (Supabase) ou players (ancien format)
+  const playersList = session.registrations
+    ? session.registrations
+        .filter(r => r.status === 'confirmed')
+        .map(r => ({
+          id: r.player?.id || r.player_id,
+          name: r.player?.display_name || r.player_id,
+          avatar: r.player?.avatar_url
+        }))
+    : (session.players || []).map(p => ({ id: p, name: p }));
+
+  const isUserRegistered = currentUser && playersList.some(p => p.id === currentUser.id);
+  const isSessionGM = currentUser && (session.dm_id === currentUser.id || session.gm === displayName);
   const maxPlayers = session.max_players || session.maxPlayers || 6;
-  const currentPlayers = session.current_players ?? session.players?.length ?? 0;
+  const currentPlayers = session.current_players ?? playersList.length;
   const availableSlots = session.available_slots ?? (maxPlayers - currentPlayers);
   const isFull = currentPlayers >= maxPlayers;
   const minPlayers = session.minPlayers || 1;
@@ -54,8 +64,9 @@ const SessionCard = ({
   const startTime = session.starts_at ? formatTime(session.starts_at) : session.time;
   const endTime = session.ends_at ? formatTime(session.ends_at) : null;
 
-  // Titre a afficher
-  const displayTitle = session.title || session.campaign || 'Session sans titre';
+  // Titre et MJ
+  const displayTitle = session.title || session.campaign?.name || session.campaign || 'Session sans titre';
+  const dmName = session.dm?.display_name || session.gm || 'MJ inconnu';
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
@@ -90,6 +101,12 @@ const SessionCard = ({
             )}
           </div>
         </div>
+        {/* Nom de la campagne */}
+        {!isOneshot && session.campaign?.name && (
+          <p className="text-white text-opacity-80 text-sm mt-1">
+            Campagne: {session.campaign.name}
+          </p>
+        )}
         {/* Description courte */}
         {session.description && (
           <p className="text-white text-opacity-80 text-sm mt-2 line-clamp-2">
@@ -126,7 +143,7 @@ const SessionCard = ({
         {/* MJ */}
         <div className="flex items-center text-gray-600">
           <Crown className="mr-2 text-yellow-500 flex-shrink-0" size={18} />
-          <span className="font-medium">{session.dm_id || session.gm}</span>
+          <span className="font-medium">{dmName}</span>
           <span className="ml-2 text-sm text-gray-400">(MJ)</span>
         </div>
 
@@ -162,22 +179,26 @@ const SessionCard = ({
             </div>
           </div>
 
-          {session.players?.length > 0 ? (
+          {playersList.length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {session.players.map((player, idx) => (
+              {playersList.map((player, idx) => (
                 <div
-                  key={idx}
+                  key={player.id || idx}
                   className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm ${
-                    player === currentUser
+                    currentUser && player.id === currentUser.id
                       ? 'bg-purple-100 text-purple-700'
                       : 'bg-gray-100 text-gray-700'
                   }`}
                 >
-                  <User size={14} />
-                  <span>{player}</span>
+                  {player.avatar ? (
+                    <img src={player.avatar} alt="" className="w-4 h-4 rounded-full" />
+                  ) : (
+                    <User size={14} />
+                  )}
+                  <span>{player.name}</span>
                   {isSessionGM && !isArchive && (
                     <button
-                      onClick={() => onRemovePlayer(session.id, player)}
+                      onClick={() => onRemovePlayer(session.id, player.name)}
                       className="ml-1 hover:text-red-600"
                       disabled={loading}
                     >

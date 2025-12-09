@@ -4,9 +4,12 @@ import { TriggerWarningSelector } from './TriggerWarningDisplay';
 import { Calendar, Clock, Users, Swords, BookOpen } from 'lucide-react';
 
 const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, displayName } = useAuth();
   const isEditing = !!session;
-  const userCampaigns = campaigns.filter(c => c.gm === currentUser);
+  // Filtrer les campagnes de l'utilisateur (Supabase: gm_id, Legacy: gm)
+  const userCampaigns = campaigns.filter(c =>
+    c.gm_id === currentUser?.id || c.gm === displayName
+  );
 
   // Calculer les valeurs initiales pour les dates/heures
   const getInitialDateTime = () => {
@@ -49,7 +52,6 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
     episode: session?.episode || '1'
   });
 
-  const [scheduleError, setScheduleError] = useState('');
 
   // Mettre a jour le titre automatiquement pour les campagnes
   useEffect(() => {
@@ -66,46 +68,11 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
     }
   }, [formData.campaign_id, formData.session_number]);
 
-  // Validation du conflit horaire MJ
-  const checkScheduleConflict = async () => {
-    if (!formData.date || !formData.startTime || !formData.endTime) return;
-
-    const starts_at = `${formData.date}T${formData.startTime}:00`;
-    const ends_at = `${formData.date}T${formData.endTime}:00`;
-
-    try {
-      const res = await fetch('/api/validate/dm-schedule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dm_id: currentUser,
-          starts_at,
-          ends_at,
-          exclude_session_id: session?.id
-        })
-      });
-      const data = await res.json();
-      if (data.hasConflict) {
-        setScheduleError('Vous avez deja une session en tant que MJ a cette periode');
-      } else {
-        setScheduleError('');
-      }
-    } catch (e) {
-      console.error('Schedule check failed:', e);
-    }
-  };
-
-  useEffect(() => {
-    checkScheduleConflict();
-  }, [formData.date, formData.startTime, formData.endTime]);
+  // Note: La validation du conflit horaire est geree par les triggers Supabase
+  // Le trigger check_dm_schedule_conflict() verifiera au moment de l'insert/update
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    if (scheduleError) {
-      alert(scheduleError);
-      return;
-    }
 
     // Construire les timestamps
     const starts_at = `${formData.date}T${formData.startTime}:00`;
@@ -131,19 +98,10 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
       system: formData.system,
       campaign_id: formData.game_type === 'campaign' ? formData.campaign_id : null,
       session_number: parseInt(formData.session_number) || 0,
-      dm_id: currentUser,
       starts_at,
       ends_at,
       max_players: parseInt(formData.max_players) || 6,
-      trigger_warnings: formData.trigger_warnings,
-      // Legacy fields
-      gm: currentUser,
-      date: formData.date,
-      time: formData.startTime,
-      campaign: formData.campaign,
-      episode: String(formData.session_number || 1),
-      minPlayers: 1,
-      maxPlayers: parseInt(formData.max_players) || 6
+      trigger_warnings: formData.trigger_warnings
     };
 
     onSubmit(submitData);
@@ -346,11 +304,6 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
             />
           </div>
         </div>
-        {scheduleError && (
-          <p className="text-sm text-red-500 bg-red-50 p-2 rounded-lg">
-            {scheduleError}
-          </p>
-        )}
       </div>
 
       {/* Nombre de joueurs */}
@@ -386,7 +339,7 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
         </button>
         <button
           type="submit"
-          disabled={loading || scheduleError || (formData.game_type === 'campaign' && !isEditing && userCampaigns.length === 0)}
+          disabled={loading || (formData.game_type === 'campaign' && !isEditing && userCampaigns.length === 0)}
           className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50"
         >
           {loading ? 'Chargement...' : (isEditing ? 'Modifier' : 'Creer')}

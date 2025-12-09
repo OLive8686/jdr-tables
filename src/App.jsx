@@ -90,16 +90,17 @@ const App = () => {
 
   // Handlers
   const handleJoin = async (sessionId) => {
-    await joinSession(sessionId, displayName);
+    await joinSession(sessionId);
   };
 
   const handleLeave = async (sessionId) => {
-    await leaveSession(sessionId, displayName);
+    await leaveSession(sessionId);
   };
 
   const handleRemovePlayer = async (sessionId, playerName) => {
     if (!confirm(`Retirer ${playerName} de la session ?`)) return;
-    await leaveSession(sessionId, playerName);
+    // TODO: Implement admin removal via Supabase
+    await leaveSession(sessionId);
   };
 
   const handleCreateSession = async (data) => {
