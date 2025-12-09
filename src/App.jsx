@@ -13,37 +13,21 @@ import {
   EmptyState
 } from './components';
 import AuthCallback from './components/AuthCallback';
-import AdminPanel from './components/AdminPanel';
 
 const App = () => {
-  const {
-    currentUser,
-    profile,
-    displayName,
-    isAdmin,
-    isAuthenticated,
-    loading: authLoading
-  } = useAuth();
+  const { user, loading: authLoading, isAuthenticated, displayName } = useAuth();
 
   // Check if we're on the callback route
-  const [isCallback, setIsCallback] = useState(false);
-  const [showAdmin, setShowAdmin] = useState(false);
+  const isCallback = window.location.pathname === '/auth/callback';
 
-  useEffect(() => {
-    // Check if current URL is auth callback
-    if (window.location.pathname === '/auth/callback') {
-      setIsCallback(true);
-    }
-  }, []);
-
-  // Etat UI
+  // UI State
   const [viewMode, setViewMode] = useState('list');
   const [showArchive, setShowArchive] = useState(false);
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
 
-  // Donnees
+  // Data
   const {
     sessions,
     campaigns,
@@ -61,12 +45,12 @@ const App = () => {
     archiveOldSessions
   } = useData();
 
-  // Callback OAuth -> afficher page de redirection
+  // OAuth callback
   if (isCallback) {
     return <AuthCallback />;
   }
 
-  // Chargement auth
+  // Loading auth
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -78,14 +62,9 @@ const App = () => {
     );
   }
 
-  // Non connecte -> page de connexion
+  // Not authenticated
   if (!isAuthenticated) {
     return <LoginPage />;
-  }
-
-  // Admin panel
-  if (showAdmin && isAdmin) {
-    return <AdminPanel onClose={() => setShowAdmin(false)} />;
   }
 
   // Handlers
@@ -99,7 +78,6 @@ const App = () => {
 
   const handleRemovePlayer = async (sessionId, playerName) => {
     if (!confirm(`Retirer ${playerName} de la session ?`)) return;
-    // TODO: Implement admin removal via Supabase
     await leaveSession(sessionId);
   };
 
@@ -133,13 +111,12 @@ const App = () => {
     await archiveOldSessions();
   };
 
-  // Donnees a afficher
+  // Data to display
   const displayedSessions = showArchive ? archives : sessions;
   const ViewComponent = viewMode === 'calendar' ? CalendarView : ListView;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
-      {/* Header */}
       <Header
         viewMode={viewMode}
         setViewMode={setViewMode}
@@ -149,11 +126,9 @@ const App = () => {
         onCreateSession={() => setShowCreateSession(true)}
         onCreateCampaign={() => setShowCreateCampaign(true)}
         onArchive={handleArchive}
-        onAdminClick={isAdmin ? () => setShowAdmin(true) : null}
         loading={loading}
       />
 
-      {/* Message d'erreur */}
       {error && (
         <div className="max-w-7xl mx-auto px-4 mt-4">
           <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
@@ -165,7 +140,6 @@ const App = () => {
         </div>
       )}
 
-      {/* Contenu principal */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {displayedSessions.length === 0 ? (
           <EmptyState showArchive={showArchive} isGM={true} />
@@ -183,7 +157,6 @@ const App = () => {
         )}
       </main>
 
-      {/* Modales */}
       <Modal
         isOpen={showCreateSession}
         onClose={() => setShowCreateSession(false)}

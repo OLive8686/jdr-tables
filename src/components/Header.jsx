@@ -8,7 +8,6 @@ import {
   LogOut,
   Plus,
   BookPlus,
-  Shield,
   User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -22,10 +21,9 @@ const Header = ({
   onCreateSession,
   onCreateCampaign,
   onArchive,
-  onAdminClick,
   loading
 }) => {
-  const { displayName, profile, isAdmin, signOut } = useAuth();
+  const { displayName, avatarUrl, signOut } = useAuth();
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-40">
@@ -39,40 +37,18 @@ const Header = ({
             <div>
               <h1 className="text-xl font-bold text-gray-800">Tables de JDR</h1>
               <div className="flex items-center gap-2 text-sm text-gray-500">
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={displayName}
-                    className="w-5 h-5 rounded-full"
-                  />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="w-5 h-5 rounded-full" />
                 ) : (
                   <User size={14} />
                 )}
                 <span className="font-medium">{displayName}</span>
-                {isAdmin && (
-                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
-                    Admin
-                  </span>
-                )}
               </div>
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Admin */}
-            {isAdmin && onAdminClick && (
-              <button
-                onClick={onAdminClick}
-                className="flex items-center gap-2 px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition"
-                title="Administration"
-              >
-                <Shield size={18} />
-                <span className="hidden sm:inline">Admin</span>
-              </button>
-            )}
-
-            {/* Actualiser */}
             <button
               onClick={onRefresh}
               disabled={loading}
@@ -82,7 +58,6 @@ const Header = ({
               <RefreshCw className={loading ? 'animate-spin' : ''} size={20} />
             </button>
 
-            {/* Basculer Archives */}
             <button
               onClick={() => setShowArchive(!showArchive)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg transition ${
@@ -93,7 +68,6 @@ const Header = ({
               <span className="hidden sm:inline">{showArchive ? 'Sessions' : 'Archives'}</span>
             </button>
 
-            {/* Basculer Vue */}
             <button
               onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
               className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition"
@@ -102,7 +76,6 @@ const Header = ({
               <span className="hidden sm:inline">{viewMode === 'list' ? 'Calendrier' : 'Liste'}</span>
             </button>
 
-            {/* Deconnexion */}
             <button
               onClick={signOut}
               className="flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-600 rounded-lg transition"
@@ -136,7 +109,7 @@ const Header = ({
               className="flex items-center gap-2 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition disabled:opacity-50"
             >
               <Archive size={18} />
-              Archiver l'ancien
+              Archiver
             </button>
           </div>
         )}
