@@ -70,6 +70,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    currentUser: user, // Alias for backward compatibility
     loading,
     isAuthenticated: !!user,
     displayName: user?.user_metadata?.full_name ||
