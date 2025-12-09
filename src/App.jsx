@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Loader2 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { useData } from './hooks/useData';
 import {
@@ -12,18 +12,38 @@ import {
   CalendarView,
   EmptyState
 } from './components';
+import AuthCallback from './components/AuthCallback';
+import AdminPanel from './components/AdminPanel';
 
 const App = () => {
-  const { currentUser, isGM, isAuthenticated } = useAuth();
+  const {
+    currentUser,
+    profile,
+    displayName,
+    isAdmin,
+    isAuthenticated,
+    loading: authLoading
+  } = useAuth();
 
-  // État UI
+  // Check if we're on the callback route
+  const [isCallback, setIsCallback] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  useEffect(() => {
+    // Check if current URL is auth callback
+    if (window.location.pathname === '/auth/callback') {
+      setIsCallback(true);
+    }
+  }, []);
+
+  // Etat UI
   const [viewMode, setViewMode] = useState('list');
   const [showArchive, setShowArchive] = useState(false);
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
 
-  // Données
+  // Donnees
   const {
     sessions,
     campaigns,
@@ -41,18 +61,40 @@ const App = () => {
     archiveOldSessions
   } = useData();
 
-  // Non connecté -> page de connexion
+  // Callback OAuth -> afficher page de redirection
+  if (isCallback) {
+    return <AuthCallback />;
+  }
+
+  // Chargement auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <Loader2 className="animate-spin mx-auto mb-4" size={48} />
+          <p className="text-xl">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Non connecte -> page de connexion
   if (!isAuthenticated) {
     return <LoginPage />;
   }
 
+  // Admin panel
+  if (showAdmin && isAdmin) {
+    return <AdminPanel onClose={() => setShowAdmin(false)} />;
+  }
+
   // Handlers
   const handleJoin = async (sessionId) => {
-    await joinSession(sessionId, currentUser);
+    await joinSession(sessionId, displayName);
   };
 
   const handleLeave = async (sessionId) => {
-    await leaveSession(sessionId, currentUser);
+    await leaveSession(sessionId, displayName);
   };
 
   const handleRemovePlayer = async (sessionId, playerName) => {
@@ -90,7 +132,7 @@ const App = () => {
     await archiveOldSessions();
   };
 
-  // Données à afficher
+  // Donnees a afficher
   const displayedSessions = showArchive ? archives : sessions;
   const ViewComponent = viewMode === 'calendar' ? CalendarView : ListView;
 
@@ -106,6 +148,7 @@ const App = () => {
         onCreateSession={() => setShowCreateSession(true)}
         onCreateCampaign={() => setShowCreateCampaign(true)}
         onArchive={handleArchive}
+        onAdminClick={isAdmin ? () => setShowAdmin(true) : null}
         loading={loading}
       />
 
@@ -124,7 +167,7 @@ const App = () => {
       {/* Contenu principal */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {displayedSessions.length === 0 ? (
-          <EmptyState showArchive={showArchive} isGM={isGM} />
+          <EmptyState showArchive={showArchive} isGM={true} />
         ) : (
           <ViewComponent
             sessions={displayedSessions}
@@ -143,7 +186,7 @@ const App = () => {
       <Modal
         isOpen={showCreateSession}
         onClose={() => setShowCreateSession(false)}
-        title="Créer une session"
+        title="Creer une session"
       >
         <SessionForm
           campaigns={campaigns}
@@ -170,7 +213,7 @@ const App = () => {
       <Modal
         isOpen={showCreateCampaign}
         onClose={() => setShowCreateCampaign(false)}
-        title="Créer une campagne"
+        title="Creer une campagne"
       >
         <CampaignForm
           onSubmit={handleCreateCampaign}
