@@ -16,14 +16,26 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[Auth] Initializing...');
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        console.log('[Auth] getSession result:', { session: !!session, error });
+        if (error) {
+          console.error('[Auth] getSession error:', error);
+        }
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('[Auth] getSession catch:', err);
+        setLoading(false);
+      });
 
     // Listen to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('[Auth] onAuthStateChange:', _event);
       setUser(session?.user ?? null);
       setLoading(false);
     });

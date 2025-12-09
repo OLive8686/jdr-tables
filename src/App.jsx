@@ -20,6 +20,9 @@ const App = () => {
   // Check if we're on the callback route
   const isCallback = window.location.pathname === '/auth/callback';
 
+  console.log('[App] pathname:', window.location.pathname, 'isCallback:', isCallback);
+  console.log('[App] authLoading:', authLoading, 'isAuthenticated:', isAuthenticated, 'user:', !!user);
+
   // UI State
   const [viewMode, setViewMode] = useState('list');
   const [showArchive, setShowArchive] = useState(false);
