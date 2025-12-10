@@ -7,6 +7,7 @@ export const useData = () => {
   const [sessionsList, setSessionsList] = useState([]);
   const [campaignsList, setCampaignsList] = useState([]);
   const [archives, setArchives] = useState([]);
+  const [deletedSessions, setDeletedSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -14,8 +15,9 @@ export const useData = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [sessionsData, campaignsData] = await Promise.all([
+      const [sessionsData, deletedData, campaignsData] = await Promise.all([
         sessions.getAll(),
+        sessions.getDeleted(),
         campaigns.getAll()
       ]);
 
@@ -36,6 +38,7 @@ export const useData = () => {
 
       setSessionsList(activeSessions);
       setArchives(archivedSessions);
+      setDeletedSessions(deletedData || []);
       setCampaignsList(campaignsData || []);
       setError('');
     } catch (err) {
@@ -130,11 +133,80 @@ export const useData = () => {
     setLoading(true);
     setError('');
     try {
-      await sessions.delete(id);
+      // Soft delete - marque comme supprimé au lieu de supprimer
+      await sessions.softDelete(id);
       await loadData();
       return { success: true };
     } catch (err) {
       const message = err.message || 'Erreur lors de la suppression';
+      setError(message);
+      return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const restoreSession = async (id) => {
+    setLoading(true);
+    setError('');
+    try {
+      await sessions.restore(id);
+      await loadData();
+      return { success: true };
+    } catch (err) {
+      const message = err.message || 'Erreur lors de la restauration';
+      setError(message);
+      return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const permanentlyDeleteSession = async (id) => {
+    setLoading(true);
+    setError('');
+    try {
+      await sessions.permanentDelete(id);
+      await loadData();
+      return { success: true };
+    } catch (err) {
+      const message = err.message || 'Erreur lors de la suppression definitive';
+      setError(message);
+      return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const duplicateSession = async (sessionData) => {
+    setLoading(true);
+    setError('');
+    try {
+      // Creer une copie avec une nouvelle date (demain par defaut)
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 7); // Dans une semaine
+      const newStartsAt = tomorrow.toISOString().split('T')[0] + 'T' +
+        (sessionData.starts_at ? new Date(sessionData.starts_at).toTimeString().substring(0, 5) : '20:00') + ':00';
+
+      const newSession = await sessions.create({
+        game_type: sessionData.game_type,
+        title: sessionData.title + ' (copie)',
+        description: sessionData.description,
+        external_url: sessionData.external_url,
+        system: sessionData.system,
+        campaign_id: sessionData.campaign_id,
+        session_number: (sessionData.session_number || 0) + 1,
+        starts_at: newStartsAt,
+        min_players: sessionData.min_players || 3,
+        max_players: sessionData.max_players || 5,
+        trigger_warnings: sessionData.trigger_warnings || []
+      });
+
+      await logEvent('session_duplicated', 'session', newSession.id, { original_id: sessionData.id });
+      await loadData();
+      return { success: true, session: newSession };
+    } catch (err) {
+      const message = err.message || 'Erreur lors de la duplication';
       setError(message);
       return { success: false, error: message };
     } finally {
@@ -227,6 +299,7 @@ export const useData = () => {
     sessions: sessionsList,
     campaigns: campaignsList,
     archives,
+    deletedSessions,
     loading,
     error,
     setError,
@@ -236,6 +309,9 @@ export const useData = () => {
     createSession,
     updateSession,
     deleteSession,
+    restoreSession,
+    permanentlyDeleteSession,
+    duplicateSession,
     joinSession,
     leaveSession,
     createCampaign,

@@ -8,7 +8,8 @@ import {
   LogOut,
   Plus,
   BookPlus,
-  User
+  User,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -17,6 +18,9 @@ const Header = ({
   setViewMode,
   showArchive,
   setShowArchive,
+  showDeleted,
+  setShowDeleted,
+  deletedCount = 0,
   onRefresh,
   onCreateSession,
   onCreateCampaign,
@@ -67,6 +71,20 @@ const Header = ({
               <Archive size={18} />
               <span className="hidden sm:inline">{showArchive ? 'Sessions' : 'Archives'}</span>
             </button>
+
+            {deletedCount > 0 && (
+              <button
+                onClick={() => setShowDeleted(!showDeleted)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition ${
+                  showDeleted ? 'bg-red-100 text-red-700' : 'hover:bg-gray-100'
+                }`}
+                title="Sessions supprimees"
+              >
+                <Trash2 size={18} />
+                <span className="hidden sm:inline">Corbeille</span>
+                <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{deletedCount}</span>
+              </button>
+            )}
 
             <button
               onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}

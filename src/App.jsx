@@ -26,6 +26,7 @@ const App = () => {
   // UI State
   const [viewMode, setViewMode] = useState('list');
   const [showArchive, setShowArchive] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
@@ -35,6 +36,7 @@ const App = () => {
     sessions,
     campaigns,
     archives,
+    deletedSessions,
     loading,
     error,
     setError,
@@ -42,6 +44,9 @@ const App = () => {
     createSession,
     updateSession,
     deleteSession,
+    restoreSession,
+    permanentlyDeleteSession,
+    duplicateSession,
     joinSession,
     leaveSession,
     createCampaign,
@@ -114,8 +119,21 @@ const App = () => {
     await archiveOldSessions();
   };
 
+  const handleDuplicate = async (session) => {
+    await duplicateSession(session);
+  };
+
+  const handleRestore = async (sessionId) => {
+    await restoreSession(sessionId);
+  };
+
+  const handlePermanentDelete = async (sessionId) => {
+    if (!confirm('Supprimer definitivement cette session ? Cette action est irreversible.')) return;
+    await permanentlyDeleteSession(sessionId);
+  };
+
   // Data to display
-  const displayedSessions = showArchive ? archives : sessions;
+  const displayedSessions = showDeleted ? deletedSessions : (showArchive ? archives : sessions);
   const ViewComponent = viewMode === 'calendar' ? CalendarView : ListView;
 
   return (
@@ -124,7 +142,10 @@ const App = () => {
         viewMode={viewMode}
         setViewMode={setViewMode}
         showArchive={showArchive}
-        setShowArchive={setShowArchive}
+        setShowArchive={(val) => { setShowArchive(val); setShowDeleted(false); }}
+        showDeleted={showDeleted}
+        setShowDeleted={(val) => { setShowDeleted(val); setShowArchive(false); }}
+        deletedCount={deletedSessions.length}
         onRefresh={loadData}
         onCreateSession={() => setShowCreateSession(true)}
         onCreateCampaign={() => setShowCreateCampaign(true)}
@@ -150,10 +171,14 @@ const App = () => {
           <ViewComponent
             sessions={displayedSessions}
             isArchive={showArchive}
+            isDeleted={showDeleted}
             onJoin={handleJoin}
             onLeave={handleLeave}
             onEdit={setEditingSession}
             onDelete={handleDeleteSession}
+            onDuplicate={handleDuplicate}
+            onRestore={handleRestore}
+            onPermanentDelete={handlePermanentDelete}
             onRemovePlayer={handleRemovePlayer}
             loading={loading}
           />

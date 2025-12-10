@@ -223,6 +223,7 @@ export const sessions = {
           player:profiles!player_id(id, display_name, avatar_url)
         )
       `)
+      .is('deleted_at', null)
       .order('starts_at', { ascending: true });
 
     if (error) throw error;
@@ -234,6 +235,21 @@ export const sessions = {
       available_slots: s.max_players - (s.registrations?.filter(r => r.status === 'confirmed').length || 0),
       players: s.registrations?.filter(r => r.status === 'confirmed').map(r => r.player.display_name) || []
     }));
+  },
+
+  getDeleted: async () => {
+    const { data, error } = await supabase
+      .from('sessions')
+      .select(`
+        *,
+        dm:profiles!dm_id(id, display_name, avatar_url),
+        campaign:campaigns(id, name)
+      `)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
   },
 
   getAvailable: async () => {
@@ -304,6 +320,45 @@ export const sessions = {
     if (error) throw error;
 
     await logEvent('session_deleted', 'session', id);
+  },
+
+  softDelete: async (id) => {
+    const { data, error } = await supabase
+      .from('sessions')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await logEvent('session_soft_deleted', 'session', id);
+    return data;
+  },
+
+  restore: async (id) => {
+    const { data, error } = await supabase
+      .from('sessions')
+      .update({ deleted_at: null })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await logEvent('session_restored', 'session', id);
+    return data;
+  },
+
+  permanentDelete: async (id) => {
+    const { error } = await supabase
+      .from('sessions')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    await logEvent('session_permanently_deleted', 'session', id);
   }
 };
 

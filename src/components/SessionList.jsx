@@ -14,8 +14,8 @@ const formatDate = (dateStr) => {
 };
 
 // Vue Liste
-export const ListView = ({ sessions, isArchive, ...props }) => {
-  const sortedSessions = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date));
+export const ListView = ({ sessions, isArchive, isDeleted, ...props }) => {
+  const sortedSessions = [...sessions].sort((a, b) => new Date(a.date || a.starts_at) - new Date(b.date || b.starts_at));
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -24,6 +24,7 @@ export const ListView = ({ sessions, isArchive, ...props }) => {
           key={session.id}
           session={session}
           isArchive={isArchive}
+          isDeleted={isDeleted}
           {...props}
         />
       ))}
@@ -32,10 +33,10 @@ export const ListView = ({ sessions, isArchive, ...props }) => {
 };
 
 // Vue Calendrier
-export const CalendarView = ({ sessions, isArchive, ...props }) => {
+export const CalendarView = ({ sessions, isArchive, isDeleted, ...props }) => {
   // Grouper les sessions par date
   const sessionsByDate = sessions.reduce((acc, session) => {
-    const date = session.date;
+    const date = session.date || (session.starts_at ? session.starts_at.split('T')[0] : 'unknown');
     if (!acc[date]) acc[date] = [];
     acc[date].push(session);
     return acc;
@@ -58,6 +59,7 @@ export const CalendarView = ({ sessions, isArchive, ...props }) => {
                 key={session.id}
                 session={session}
                 isArchive={isArchive}
+                isDeleted={isDeleted}
                 {...props}
               />
             ))}

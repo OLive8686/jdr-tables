@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, Crown, User, UserPlus, UserMinus, Edit, Trash2, X, BookOpen, Swords, Users, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, Crown, User, UserPlus, UserMinus, Edit, Trash2, X, BookOpen, Swords, Users, ChevronDown, ChevronUp, ExternalLink, Copy, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import TriggerWarningDisplay from './TriggerWarningDisplay';
 
@@ -26,10 +26,14 @@ const formatTime = (timeStr) => {
 const SessionCard = ({
   session,
   isArchive = false,
+  isDeleted = false,
   onJoin,
   onLeave,
   onEdit,
   onDelete,
+  onDuplicate,
+  onRestore,
+  onPermanentDelete,
   onRemovePlayer,
   loading
 }) => {
@@ -243,8 +247,30 @@ const SessionCard = ({
           )}
         </div>
 
-        {/* Actions */}
-        {!isArchive && (
+        {/* Actions pour sessions supprimees */}
+        {isDeleted && isSessionGM && (
+          <div className="flex flex-wrap gap-2 pt-2 border-t">
+            <button
+              onClick={() => onRestore(session.id)}
+              disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 bg-green-100 hover:bg-green-200 text-green-700 py-2 px-4 rounded-lg transition disabled:opacity-50"
+            >
+              <RotateCcw size={18} />
+              Restaurer
+            </button>
+            <button
+              onClick={() => onPermanentDelete(session.id)}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 py-2 px-4 rounded-lg transition disabled:opacity-50"
+              title="Supprimer definitivement"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        )}
+
+        {/* Actions normales */}
+        {!isArchive && !isDeleted && (
           <div className="flex flex-wrap gap-2 pt-2 border-t">
             {!isSessionGM && (
               <>
@@ -277,6 +303,14 @@ const SessionCard = ({
 
             {isSessionGM && (
               <>
+                <button
+                  onClick={() => onDuplicate(session)}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 px-4 rounded-lg transition disabled:opacity-50"
+                  title="Dupliquer cette session"
+                >
+                  <Copy size={18} />
+                </button>
                 <button
                   onClick={() => onEdit(session)}
                   disabled={loading}
