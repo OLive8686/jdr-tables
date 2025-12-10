@@ -238,6 +238,9 @@ export const sessions = {
   },
 
   getDeleted: async () => {
+    const user = await auth.getUser();
+    if (!user) return [];
+
     const { data, error } = await supabase
       .from('sessions')
       .select(`
@@ -245,6 +248,7 @@ export const sessions = {
         dm:profiles!dm_id(id, display_name, avatar_url),
         campaign:campaigns(id, name)
       `)
+      .eq('dm_id', user.id)
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false });
 
