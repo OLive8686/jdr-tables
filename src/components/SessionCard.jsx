@@ -1,5 +1,5 @@
-import React from 'react';
-import { Calendar, Clock, Crown, User, UserPlus, UserMinus, Edit, Trash2, X, BookOpen, Swords, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Clock, Crown, User, UserPlus, UserMinus, Edit, Trash2, X, BookOpen, Swords, Users, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import TriggerWarningDisplay from './TriggerWarningDisplay';
 
@@ -34,6 +34,10 @@ const SessionCard = ({
   loading
 }) => {
   const { currentUser, displayName } = useAuth();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Verifier si on a du contenu a afficher dans la section depliable
+  const hasExpandableContent = session.description || session.external_url;
 
   // Extraire les joueurs depuis registrations (Supabase) ou players (ancien format)
   const playersList = session.registrations
@@ -107,13 +111,39 @@ const SessionCard = ({
             Campagne: {session.campaign.name}
           </p>
         )}
-        {/* Description courte */}
-        {session.description && (
-          <p className="text-white text-opacity-80 text-sm mt-2 line-clamp-2">
-            {session.description}
-          </p>
+        {/* Bouton pour voir plus de details */}
+        {hasExpandableContent && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1 mt-2 text-white text-opacity-80 hover:text-opacity-100 text-sm transition"
+          >
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {isExpanded ? 'Moins de details' : 'Plus de details'}
+          </button>
         )}
       </div>
+
+      {/* Section depliable avec description et lien */}
+      {hasExpandableContent && isExpanded && (
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+          {session.description && (
+            <p className="text-gray-600 text-sm whitespace-pre-line">
+              {session.description}
+            </p>
+          )}
+          {session.external_url && (
+            <a
+              href={session.external_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 mt-2 text-purple-600 hover:text-purple-700 text-sm font-medium"
+            >
+              <ExternalLink size={16} />
+              Ouvrir le lien externe
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Contenu */}
       <div className="p-4 space-y-4">

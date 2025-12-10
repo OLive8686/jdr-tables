@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TriggerWarningSelector } from './TriggerWarningDisplay';
-import { Calendar, Clock, Users, Swords, BookOpen, UserPlus, X } from 'lucide-react';
+import { Calendar, Clock, Users, Swords, BookOpen, UserPlus, X, Link } from 'lucide-react';
 import { profiles } from '../lib/supabase';
 
 const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
@@ -65,6 +65,7 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
     game_type: session?.game_type || 'campaign',
     title: session?.title || '',
     description: session?.description || '',
+    external_url: session?.external_url || '',
     system: session?.system || '',
     campaign_id: session?.campaign_id || '',
     session_number: session?.session_number || 0,
@@ -120,6 +121,7 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
       game_type: formData.game_type,
       title: formData.title,
       description: formData.description,
+      external_url: formData.external_url || null,
       system: formData.system,
       campaign_id: formData.game_type === 'campaign' ? formData.campaign_id : null,
       session_number: parseInt(formData.session_number) || 0,
@@ -249,6 +251,22 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
           rows={2}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none resize-none"
         />
+      </div>
+
+      {/* Lien externe (optionnel) */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          <Link className="inline w-4 h-4 mr-1" />
+          Lien externe (optionnel)
+        </label>
+        <input
+          type="url"
+          value={formData.external_url}
+          onChange={(e) => setFormData({ ...formData, external_url: e.target.value })}
+          placeholder="https://..."
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+        />
+        <p className="text-xs text-gray-500 mt-1">Lien vers Discord, Roll20, Foundry, etc.</p>
       </div>
 
       {/* Systeme de jeu */}
