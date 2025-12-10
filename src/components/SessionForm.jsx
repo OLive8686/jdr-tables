@@ -59,24 +59,7 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
     };
   };
 
-  const getInitialEndTime = () => {
-    if (session?.ends_at) {
-      return new Date(session.ends_at).toTimeString().substring(0, 5);
-    }
-    return '23:00';
-  };
-
   const initialDateTime = getInitialDateTime();
-
-  // Detecter si la session finit le lendemain
-  const detectEndsNextDay = () => {
-    if (session?.starts_at && session?.ends_at) {
-      const startDate = new Date(session.starts_at).toDateString();
-      const endDate = new Date(session.ends_at).toDateString();
-      return startDate !== endDate;
-    }
-    return false;
-  };
 
   const [formData, setFormData] = useState({
     game_type: session?.game_type || 'campaign',
@@ -87,8 +70,6 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
     session_number: session?.session_number || 0,
     date: initialDateTime.date,
     startTime: initialDateTime.startTime,
-    endTime: getInitialEndTime(),
-    endsNextDay: detectEndsNextDay(),
     min_players: session?.min_players || 3,
     max_players: session?.max_players || session?.maxPlayers || 6,
     trigger_warnings: session?.trigger_warnings || [],
@@ -119,23 +100,8 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Construire les timestamps
+    // Construire le timestamp de debut
     const starts_at = `${formData.date}T${formData.startTime}:00`;
-
-    // Si la session finit le lendemain, ajouter un jour a la date de fin
-    let endDate = formData.date;
-    if (formData.endsNextDay) {
-      const nextDay = new Date(formData.date);
-      nextDay.setDate(nextDay.getDate() + 1);
-      endDate = nextDay.toISOString().split('T')[0];
-    }
-    const ends_at = `${endDate}T${formData.endTime}:00`;
-
-    // Valider que end > start
-    if (new Date(ends_at) <= new Date(starts_at)) {
-      alert('L\'heure de fin doit etre apres l\'heure de debut');
-      return;
-    }
 
     // Valider session_number
     if (formData.session_number < 0) {
@@ -158,7 +124,6 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
       campaign_id: formData.game_type === 'campaign' ? formData.campaign_id : null,
       session_number: parseInt(formData.session_number) || 0,
       starts_at,
-      ends_at,
       min_players: parseInt(formData.min_players) || 3,
       max_players: parseInt(formData.max_players) || 6,
       trigger_warnings: formData.trigger_warnings,
@@ -337,46 +302,19 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
             required
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Clock className="inline w-4 h-4 mr-1" />
-              Debut *
-            </label>
-            <input
-              type="time"
-              value={formData.startTime}
-              onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Clock className="inline w-4 h-4 mr-1" />
-              Fin *
-            </label>
-            <input
-              type="time"
-              value={formData.endTime}
-              onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-              required
-            />
-          </div>
-        </div>
-        {/* Option fin le lendemain */}
-        <label className="flex items-center gap-2 mt-2 cursor-pointer">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <Clock className="inline w-4 h-4 mr-1" />
+            Heure de debut *
+          </label>
           <input
-            type="checkbox"
-            checked={formData.endsNextDay}
-            onChange={(e) => setFormData({ ...formData, endsNextDay: e.target.checked })}
-            className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+            type="time"
+            value={formData.startTime}
+            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+            required
           />
-          <span className="text-sm text-gray-600">
-            Se termine le lendemain (ex: 21h - 2h du matin)
-          </span>
-        </label>
+        </div>
       </div>
 
       {/* Nombre de joueurs */}

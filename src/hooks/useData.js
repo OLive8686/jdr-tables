@@ -19,14 +19,15 @@ export const useData = () => {
         campaigns.getAll()
       ]);
 
-      // Separer sessions actives et archives
+      // Separer sessions actives et archives (basé sur starts_at)
       const now = new Date();
       const activeSessions = [];
       const archivedSessions = [];
 
       (sessionsData || []).forEach(session => {
-        const endDate = new Date(session.ends_at);
-        if (session.status === 'completed' || session.status === 'cancelled' || endDate < now) {
+        const startDate = new Date(session.starts_at);
+        // Une session est archivee si elle est passee (date de debut < maintenant) ou annulee/terminee
+        if (session.status === 'completed' || session.status === 'cancelled' || startDate < now) {
           archivedSessions.push(session);
         } else {
           activeSessions.push(session);
@@ -68,7 +69,6 @@ export const useData = () => {
         campaign_id: sessionData.campaign_id || null,
         session_number: sessionData.session_number || 0,
         starts_at: sessionData.starts_at,
-        ends_at: sessionData.ends_at,
         min_players: sessionData.min_players || 3,
         max_players: sessionData.max_players || 5,
         trigger_warnings: sessionData.trigger_warnings || []
@@ -108,7 +108,7 @@ export const useData = () => {
         campaign_id: sessionData.campaign_id || null,
         session_number: sessionData.session_number,
         starts_at: sessionData.starts_at,
-        ends_at: sessionData.ends_at,
+        min_players: sessionData.min_players,
         max_players: sessionData.max_players,
         status: sessionData.status,
         trigger_warnings: sessionData.trigger_warnings || []
@@ -202,8 +202,7 @@ export const useData = () => {
     setError('');
     try {
       // Marquer les sessions passees comme "completed"
-      const now = new Date().toISOString();
-      const oldSessions = sessionsList.filter(s => new Date(s.ends_at) < new Date());
+      const oldSessions = sessionsList.filter(s => new Date(s.starts_at) < new Date());
 
       for (const session of oldSessions) {
         await sessions.update(session.id, { status: 'completed' });
