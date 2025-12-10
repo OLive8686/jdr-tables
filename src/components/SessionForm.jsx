@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TriggerWarningSelector } from './TriggerWarningDisplay';
-import { Calendar, Clock, Users, Swords, BookOpen } from 'lucide-react';
+import { Calendar, Clock, Users, Swords, BookOpen, UserPlus, X } from 'lucide-react';
+import { profiles } from '../lib/supabase';
 
 const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
   const { currentUser, displayName } = useAuth();
@@ -10,6 +11,38 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
   const userCampaigns = campaigns.filter(c =>
     c.gm_id === currentUser?.id || c.gm === displayName
   );
+
+  // Liste des joueurs disponibles pour preinscription
+  const [allPlayers, setAllPlayers] = useState([]);
+  const [selectedPlayers, setSelectedPlayers] = useState([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
+
+  // Charger la liste des joueurs
+  useEffect(() => {
+    const loadPlayers = async () => {
+      setLoadingPlayers(true);
+      try {
+        const playersList = await profiles.getAll();
+        // Exclure le MJ actuel de la liste
+        setAllPlayers(playersList.filter(p => p.id !== currentUser?.id));
+      } catch (err) {
+        console.error('Error loading players:', err);
+      }
+      setLoadingPlayers(false);
+    };
+    loadPlayers();
+  }, [currentUser?.id]);
+
+  // Charger les joueurs preinscrits si edition
+  useEffect(() => {
+    if (session?.registrations) {
+      const preregistered = session.registrations
+        .filter(r => r.status === 'confirmed')
+        .map(r => r.player?.id || r.player_id)
+        .filter(Boolean);
+      setSelectedPlayers(preregistered);
+    }
+  }, [session]);
 
   // Calculer les valeurs initiales pour les dates/heures
   const getInitialDateTime = () => {
@@ -35,6 +68,16 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
 
   const initialDateTime = getInitialDateTime();
 
+  // Detecter si la session finit le lendemain
+  const detectEndsNextDay = () => {
+    if (session?.starts_at && session?.ends_at) {
+      const startDate = new Date(session.starts_at).toDateString();
+      const endDate = new Date(session.ends_at).toDateString();
+      return startDate !== endDate;
+    }
+    return false;
+  };
+
   const [formData, setFormData] = useState({
     game_type: session?.game_type || 'campaign',
     title: session?.title || '',
@@ -45,6 +88,8 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
     date: initialDateTime.date,
     startTime: initialDateTime.startTime,
     endTime: getInitialEndTime(),
+    endsNextDay: detectEndsNextDay(),
+    min_players: session?.min_players || 3,
     max_players: session?.max_players || session?.maxPlayers || 6,
     trigger_warnings: session?.trigger_warnings || [],
     // Legacy compatibility
@@ -76,7 +121,15 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
 
     // Construire les timestamps
     const starts_at = `${formData.date}T${formData.startTime}:00`;
-    const ends_at = `${formData.date}T${formData.endTime}:00`;
+
+    // Si la session finit le lendemain, ajouter un jour a la date de fin
+    let endDate = formData.date;
+    if (formData.endsNextDay) {
+      const nextDay = new Date(formData.date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      endDate = nextDay.toISOString().split('T')[0];
+    }
+    const ends_at = `${endDate}T${formData.endTime}:00`;
 
     // Valider que end > start
     if (new Date(ends_at) <= new Date(starts_at)) {
@@ -90,6 +143,12 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
       return;
     }
 
+    // Valider min <= max
+    if (formData.min_players > formData.max_players) {
+      alert('Le nombre minimum de joueurs ne peut pas depasser le maximum');
+      return;
+    }
+
     const submitData = {
       id: session?.id,
       game_type: formData.game_type,
@@ -100,8 +159,10 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
       session_number: parseInt(formData.session_number) || 0,
       starts_at,
       ends_at,
+      min_players: parseInt(formData.min_players) || 3,
       max_players: parseInt(formData.max_players) || 6,
-      trigger_warnings: formData.trigger_warnings
+      trigger_warnings: formData.trigger_warnings,
+      preregistered_players: selectedPlayers
     };
 
     onSubmit(submitData);
@@ -304,22 +365,115 @@ const SessionForm = ({ session, campaigns, onSubmit, onClose, loading }) => {
             />
           </div>
         </div>
+        {/* Option fin le lendemain */}
+        <label className="flex items-center gap-2 mt-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formData.endsNextDay}
+            onChange={(e) => setFormData({ ...formData, endsNextDay: e.target.checked })}
+            className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+          />
+          <span className="text-sm text-gray-600">
+            Se termine le lendemain (ex: 21h - 2h du matin)
+          </span>
+        </label>
       </div>
 
       {/* Nombre de joueurs */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
           <Users className="inline w-4 h-4 mr-1" />
-          Nombre max de joueurs
+          Nombre de joueurs
         </label>
-        <input
-          type="number"
-          value={formData.max_players}
-          min="1"
-          max="20"
-          onChange={(e) => setFormData({ ...formData, max_players: parseInt(e.target.value) })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Minimum</label>
+            <input
+              type="number"
+              value={formData.min_players}
+              min="1"
+              max="20"
+              onChange={(e) => setFormData({ ...formData, min_players: parseInt(e.target.value) || 1 })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Maximum</label>
+            <input
+              type="number"
+              value={formData.max_players}
+              min="1"
+              max="20"
+              onChange={(e) => setFormData({ ...formData, max_players: parseInt(e.target.value) || 6 })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Preinscription des joueurs */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          <UserPlus className="inline w-4 h-4 mr-1" />
+          Preinscrire des joueurs (optionnel)
+        </label>
+        {loadingPlayers ? (
+          <p className="text-sm text-gray-500">Chargement des joueurs...</p>
+        ) : allPlayers.length === 0 ? (
+          <p className="text-sm text-gray-500">Aucun joueur disponible</p>
+        ) : (
+          <>
+            {/* Joueurs selectionnes */}
+            {selectedPlayers.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {selectedPlayers.map(playerId => {
+                  const player = allPlayers.find(p => p.id === playerId);
+                  return player ? (
+                    <span
+                      key={playerId}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
+                    >
+                      {player.avatar_url && (
+                        <img src={player.avatar_url} alt="" className="w-4 h-4 rounded-full" />
+                      )}
+                      {player.display_name}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPlayers(prev => prev.filter(id => id !== playerId))}
+                        className="ml-1 hover:text-purple-900"
+                      >
+                        <X size={14} />
+                      </button>
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            )}
+            {/* Liste deroulante */}
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value && !selectedPlayers.includes(e.target.value)) {
+                  if (selectedPlayers.length < formData.max_players) {
+                    setSelectedPlayers(prev => [...prev, e.target.value]);
+                  } else {
+                    alert(`Maximum ${formData.max_players} joueurs`);
+                  }
+                }
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+            >
+              <option value="">Ajouter un joueur...</option>
+              {allPlayers
+                .filter(p => !selectedPlayers.includes(p.id))
+                .map(player => (
+                  <option key={player.id} value={player.id}>
+                    {player.display_name}
+                  </option>
+                ))}
+            </select>
+          </>
+        )}
       </div>
 
       {/* Trigger Warnings */}

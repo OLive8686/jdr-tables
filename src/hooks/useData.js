@@ -60,7 +60,7 @@ export const useData = () => {
     setLoading(true);
     setError('');
     try {
-      await sessions.create({
+      const newSession = await sessions.create({
         game_type: sessionData.game_type || 'oneshot',
         title: sessionData.title,
         description: sessionData.description,
@@ -69,9 +69,22 @@ export const useData = () => {
         session_number: sessionData.session_number || 0,
         starts_at: sessionData.starts_at,
         ends_at: sessionData.ends_at,
+        min_players: sessionData.min_players || 3,
         max_players: sessionData.max_players || 5,
         trigger_warnings: sessionData.trigger_warnings || []
       });
+
+      // Preinscrire les joueurs si specifies
+      if (sessionData.preregistered_players && sessionData.preregistered_players.length > 0) {
+        for (const playerId of sessionData.preregistered_players) {
+          try {
+            await registrations.registerPlayer(newSession.id, playerId);
+          } catch (regErr) {
+            console.warn('Failed to preregister player:', playerId, regErr);
+          }
+        }
+      }
+
       await loadData();
       return { success: true };
     } catch (err) {

@@ -327,6 +327,21 @@ export const registrations = {
     return data;
   },
 
+  // MJ peut inscrire un autre joueur
+  registerPlayer: async (sessionId, playerId) => {
+    const { data, error } = await supabase
+      .from('session_registrations')
+      .insert({ session_id: sessionId, player_id: playerId, status: 'confirmed' })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await logEvent('player_preregistered', 'registration', data.id, { session_id: sessionId, player_id: playerId });
+
+    return data;
+  },
+
   unregister: async (sessionId) => {
     const user = await auth.getUser();
     const { error } = await supabase
